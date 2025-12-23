@@ -1,7 +1,6 @@
 
   # Chicken Invader
-
-  This is a code bundle for Chicken Invader. The original project is available at https://www.figma.com/design/8nppBTHVgif3PwRDB04gNX/Chicken-Invader.
+  
 
   ## Running the code
 
