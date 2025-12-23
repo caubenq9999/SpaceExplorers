@@ -68,7 +68,7 @@ interface Boss {
 }
 
 const GAME_WIDTH = 400;
-const GAME_HEIGHT = 600;
+const GAME_HEIGHT = 550;
 const PLAYER_SIZE = 48;
 const ENEMY_SIZE = 32;
 const BULLET_SIZE = 8;
