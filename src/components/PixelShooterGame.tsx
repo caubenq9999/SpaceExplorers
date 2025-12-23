@@ -138,6 +138,7 @@ export function PixelShooterGame({ isPaused, onPause, onGameOver, selectedSkin =
   const particleIdCounter = useRef(0);
   const bossIdCounter = useRef(0);
   const bossMovementTime = useRef(0);
+  const bossSpawnTime = useRef<number>(0); // Track when boss spawns for absolute time calculation
   const comboTimer = useRef<number | null>(null);
   const grazedBullets = useRef<Set<number>>(new Set());
 
@@ -312,6 +313,9 @@ export function PixelShooterGame({ isPaused, onPause, onGameOver, selectedSkin =
     const maxHealth = baseBossHP * (1 + (level - 1) * 0.5);
     // Shield is 2 layers (approx 40% of HP or specific value?) Let's make it 50% of HP
     const maxShield = maxHealth * 0.5;
+
+    // Set boss spawn time for absolute timestamp movement
+    bossSpawnTime.current = performance.now();
 
     setBoss({
       id: bossIdCounter.current++,
@@ -537,9 +541,9 @@ export function PixelShooterGame({ isPaused, onPause, onGameOver, selectedSkin =
         setBoss(prev => {
           if (!prev) return null;
 
-          // Sine wave movement
-          bossMovementTime.current += dt * 2;
-          const newX = GAME_WIDTH / 2 + Math.sin(bossMovementTime.current) * 120;
+          // Use absolute timestamp for smooth movement regardless of frame rate
+          const elapsedTime = (timestamp - bossSpawnTime.current) / 1000;
+          const newX = GAME_WIDTH / 2 + Math.sin(elapsedTime * 2) * 120;
 
           // Pattern switching logic
           bossPatternTimer.current += dt;
@@ -559,7 +563,7 @@ export function PixelShooterGame({ isPaused, onPause, onGameOver, selectedSkin =
             if (currentPattern === 'spiral') {
               // Sinusoidal/Winding Pattern for increased difficulty
               const bulletCount = 5;
-              const spiralOffset = bossMovementTime.current * 3;
+              const spiralOffset = elapsedTime * 3; // Use absolute time for consistent spiral
 
               for (let i = 0; i < bulletCount; i++) {
                 const angle = (Math.PI * 2 / bulletCount) * i + spiralOffset;
