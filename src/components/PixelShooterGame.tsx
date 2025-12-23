@@ -404,7 +404,7 @@ export function PixelShooterGame({ isPaused, onPause, onGameOver, selectedSkin =
 
       // Player shooting
       const now = Date.now();
-      const shootDelay = weaponMode === 'BLASTER' ? 200 : 350; // Nerfed blaster from 150 to 200, shotgun slower
+      const shootDelay = weaponModeRef.current === 'BLASTER' ? 200 : 350; // Nerfed blaster from 150 to 200, shotgun slower
 
       if (keysPressed.current.has(" ") && now - lastShotTime.current > shootDelay) {
         lastShotTime.current = now;
@@ -413,7 +413,7 @@ export function PixelShooterGame({ isPaused, onPause, onGameOver, selectedSkin =
         setBullets(prev => {
           const newBullets: Bullet[] = [];
 
-          if (weaponMode === 'SHOTGUN') {
+          if (weaponModeRef.current === 'SHOTGUN') {
             // Shotgun: 5 bullets in wide spread, 200% damage (buffed), dynamic range scaling
             const spreadAngles = [-0.4, -0.2, 0, 0.2, 0.4]; // Radians for spread
             // Dynamic range: starts at 25% (power 0), scales to 50% (power 3)

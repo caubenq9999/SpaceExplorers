@@ -1,4 +1,7 @@
-import { Rocket, ShoppingBag } from "lucide-react";
+import { Rocket, ShoppingBag, X } from "lucide-react";
+import { useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import instructionImage from "../assets/instruction.png";
 
 interface StartMenuProps {
     onStartGame: () => void;
@@ -6,6 +9,8 @@ interface StartMenuProps {
 }
 
 export function StartMenu({ onStartGame, onOpenShop }: StartMenuProps) {
+    const [showInstructions, setShowInstructions] = useState(true);
+
     return (
         <div className="min-h-screen bg-black flex items-center justify-center p-4 relative overflow-hidden">
             {/* Scrolling space background - slower for lobby */}
@@ -97,6 +102,45 @@ export function StartMenu({ onStartGame, onOpenShop }: StartMenuProps) {
                     V1.1.0
                 </p>
             </div>
+
+            {/* Instruction Overlay */}
+            <AnimatePresence>
+                {showInstructions && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-[200] p-4"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            transition={{ duration: 0.3 }}
+                            className="relative max-w-4xl w-full"
+                        >
+                            {/* Close Button */}
+                            <button
+                                onClick={() => setShowInstructions(false)}
+                                className="absolute -top-4 -right-4 z-10 bg-red-600 hover:bg-red-500 border-2 border-red-400 rounded-full p-3 transition-all hover:scale-110 active:scale-95 shadow-lg shadow-red-900/50"
+                                aria-label="Close instructions"
+                            >
+                                <X className="w-6 h-6 text-white" />
+                            </button>
+
+                            {/* Instruction Image */}
+                            <div className="bg-slate-900 border-4 border-cyan-500 rounded-lg overflow-hidden shadow-2xl shadow-cyan-500/20">
+                                <img
+                                    src={instructionImage}
+                                    alt="Game Instructions"
+                                    className="w-full h-auto"
+                                />
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }
