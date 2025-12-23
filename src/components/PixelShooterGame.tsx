@@ -22,6 +22,9 @@ interface Bullet {
   isEnemy: boolean;
   vx?: number; // Optional horizontal velocity for complex patterns
   vy?: number; // Optional vertical velocity override
+  isDebuff?: boolean; // Boss debuff bullet
+  maxDistance?: number; // For shotgun bullets with limited range
+  startY?: number; // Starting Y position for distance tracking
 }
 
 interface Enemy {
@@ -119,8 +122,11 @@ export function PixelShooterGame({ isPaused, onPause, onGameOver, selectedSkin =
   const [bombActive, setBombActive] = useState(false);
   const [highScore, setHighScore] = useState(0);
   const [totalKills, setTotalKills] = useState(0);
+  const [weaponMode, setWeaponMode] = useState<'BLASTER' | 'SHOTGUN'>('BLASTER');
 
   const keysPressed = useRef<Set<string>>(new Set());
+  const soundEnabledRef = useRef(soundEnabled);
+  const weaponModeRef = useRef(weaponMode);
   const gameLoopRef = useRef<number>();
   const lastTimeRef = useRef<number>(0);
   const lastShotTime = useRef(0);
@@ -255,6 +261,15 @@ export function PixelShooterGame({ isPaused, onPause, onGameOver, selectedSkin =
     }
   }, [bombs, bombActive, gameOver, isPaused, soundEnabled, boss, createExplosion]);
 
+  // Update refs when state changes
+  useEffect(() => {
+    soundEnabledRef.current = soundEnabled;
+  }, [soundEnabled]);
+
+  useEffect(() => {
+    weaponModeRef.current = weaponMode;
+  }, [weaponMode]);
+
   // Keyboard controls
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -267,6 +282,14 @@ export function PixelShooterGame({ isPaused, onPause, onGameOver, selectedSkin =
       }
       if (e.key.toLowerCase() === "b") {
         activateBomb();
+      }
+      if (e.key.toLowerCase() === "q" && !e.repeat) {
+        // Toggle weapon mode - use ref for instant response
+        const newMode = weaponModeRef.current === 'BLASTER' ? 'SHOTGUN' : 'BLASTER';
+        setWeaponMode(newMode);
+        if (soundEnabledRef.current) {
+          soundSystem.powerUp();
+        }
       }
     };
 
@@ -281,7 +304,7 @@ export function PixelShooterGame({ isPaused, onPause, onGameOver, selectedSkin =
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [activateBomb, onPause]);
+  }, [activateBomb, onPause]); // Removed soundEnabled and setWeaponMode from deps
 
   const spawnBoss = useCallback(() => {
     // 5x base HP buff as requested
@@ -381,55 +404,85 @@ export function PixelShooterGame({ isPaused, onPause, onGameOver, selectedSkin =
 
       // Player shooting
       const now = Date.now();
-      if (keysPressed.current.has(" ") && now - lastShotTime.current > 150) {
+      const shootDelay = weaponMode === 'BLASTER' ? 200 : 350; // Nerfed blaster from 150 to 200, shotgun slower
+
+      if (keysPressed.current.has(" ") && now - lastShotTime.current > shootDelay) {
         lastShotTime.current = now;
         if (soundEnabled) soundSystem.shoot();
+
         setBullets(prev => {
           const newBullets: Bullet[] = [];
-          if (power >= 1) {
-            newBullets.push({
-              id: bulletIdCounter.current++,
-              x: playerPosRef.current.x,
-              y: playerPosRef.current.y - PLAYER_SIZE / 2,
-              speed: -BULLET_SPEED_PLAYER,
-              isEnemy: false,
-            });
-          }
-          if (power >= 2) {
-            newBullets.push(
-              {
+
+          if (weaponMode === 'SHOTGUN') {
+            // Shotgun: 5 bullets in wide spread, 200% damage (buffed), dynamic range scaling
+            const spreadAngles = [-0.4, -0.2, 0, 0.2, 0.4]; // Radians for spread
+            // Dynamic range: starts at 25% (power 0), scales to 50% (power 3)
+            const baseRange = GAME_HEIGHT * 0.25;
+            const maxRange = GAME_HEIGHT * 0.5;
+            const rangePerLevel = (maxRange - baseRange) / 3; // Divide by max power level (3)
+            const shotgunRange = baseRange + (rangePerLevel * (power - 1)); // power is 1-based
+            const shotgunSpeed = -BULLET_SPEED_PLAYER * 1.2;
+
+            for (const angle of spreadAngles) {
+              newBullets.push({
                 id: bulletIdCounter.current++,
-                x: playerPosRef.current.x - 10,
+                x: playerPosRef.current.x,
+                y: playerPosRef.current.y - PLAYER_SIZE / 2,
+                speed: 0,
+                vx: Math.sin(angle) * Math.abs(shotgunSpeed) * 0.5,
+                vy: Math.cos(angle) * shotgunSpeed,
+                isEnemy: false,
+                maxDistance: shotgunRange,
+                startY: playerPosRef.current.y - PLAYER_SIZE / 2,
+              });
+            }
+          } else {
+            // Blaster mode (original logic with power-ups)
+            if (power >= 1) {
+              newBullets.push({
+                id: bulletIdCounter.current++,
+                x: playerPosRef.current.x,
                 y: playerPosRef.current.y - PLAYER_SIZE / 2,
                 speed: -BULLET_SPEED_PLAYER,
                 isEnemy: false,
-              },
-              {
-                id: bulletIdCounter.current++,
-                x: playerPosRef.current.x + 10,
-                y: playerPosRef.current.y - PLAYER_SIZE / 2,
-                speed: -BULLET_SPEED_PLAYER,
-                isEnemy: false,
-              }
-            );
-          }
-          if (power >= 3) {
-            newBullets.push(
-              {
-                id: bulletIdCounter.current++,
-                x: playerPosRef.current.x - 15,
-                y: playerPosRef.current.y,
-                speed: -BULLET_SPEED_PLAYER * 0.9,
-                isEnemy: false,
-              },
-              {
-                id: bulletIdCounter.current++,
-                x: playerPosRef.current.x + 15,
-                y: playerPosRef.current.y,
-                speed: -BULLET_SPEED_PLAYER * 0.9,
-                isEnemy: false,
-              }
-            );
+              });
+            }
+            if (power >= 2) {
+              newBullets.push(
+                {
+                  id: bulletIdCounter.current++,
+                  x: playerPosRef.current.x - 10,
+                  y: playerPosRef.current.y - PLAYER_SIZE / 2,
+                  speed: -BULLET_SPEED_PLAYER,
+                  isEnemy: false,
+                },
+                {
+                  id: bulletIdCounter.current++,
+                  x: playerPosRef.current.x + 10,
+                  y: playerPosRef.current.y - PLAYER_SIZE / 2,
+                  speed: -BULLET_SPEED_PLAYER,
+                  isEnemy: false,
+                }
+              );
+            }
+            if (power >= 3) {
+              newBullets.push(
+                {
+                  id: bulletIdCounter.current++,
+                  x: playerPosRef.current.x - 15,
+                  y: playerPosRef.current.y,
+                  speed: -BULLET_SPEED_PLAYER * 0.9,
+                  isEnemy: false,
+                },
+                {
+                  id: bulletIdCounter.current++,
+                  x: playerPosRef.current.x + 15,
+                  y: playerPosRef.current.y,
+                  speed: -BULLET_SPEED_PLAYER * 0.9,
+                  isEnemy: false,
+                }
+              );
+            }
           }
           return [...prev, ...newBullets];
         });
@@ -440,10 +493,18 @@ export function PixelShooterGame({ isPaused, onPause, onGameOver, selectedSkin =
         return prev
           .map(bullet => ({
             ...bullet,
-            x: bullet.vx ? bullet.x + bullet.vx * dt : bullet.x, // Apply horizontal velocity override if exists
-            y: bullet.y + (bullet.vy !== undefined ? bullet.vy : bullet.speed) * dt, // Apply vertical velocity (speed or vy override)
+            x: bullet.vx ? bullet.x + bullet.vx * dt : bullet.x,
+            y: bullet.y + (bullet.vy !== undefined ? bullet.vy : bullet.speed) * dt,
           }))
-          .filter(bullet => bullet.y > -10 && bullet.y < GAME_HEIGHT + 10 && bullet.x > -10 && bullet.x < GAME_WIDTH + 10);
+          .filter(bullet => {
+            // Check shotgun range limit
+            if (bullet.maxDistance && bullet.startY !== undefined) {
+              const distanceTraveled = Math.abs(bullet.y - bullet.startY);
+              if (distanceTraveled > bullet.maxDistance) return false;
+            }
+            // Standard bounds check
+            return bullet.y > -10 && bullet.y < GAME_HEIGHT + 10 && bullet.x > -10 && bullet.x < GAME_WIDTH + 10;
+          });
       });
 
       // Enemy shooting
@@ -451,6 +512,10 @@ export function PixelShooterGame({ isPaused, onPause, onGameOver, selectedSkin =
         if (Math.random() < 0.03) {
           const shootingEnemy = prev[Math.floor(Math.random() * prev.length)];
           if (shootingEnemy) {
+            // Dynamic debuff rate: 50% during normal waves, 80% during boss fight
+            const debuffChance = boss ? 0.8 : 0.5;
+            const isDebuffBullet = Math.random() < debuffChance;
+
             setBullets(bullets => [
               ...bullets,
               {
@@ -459,6 +524,7 @@ export function PixelShooterGame({ isPaused, onPause, onGameOver, selectedSkin =
                 y: shootingEnemy.y + ENEMY_SIZE / 2,
                 speed: BULLET_SPEED_ENEMY * (1 + (level - 1) * 0.1),
                 isEnemy: true,
+                isDebuff: isDebuffBullet,
               },
             ]);
           }
@@ -488,38 +554,31 @@ export function PixelShooterGame({ isPaused, onPause, onGameOver, selectedSkin =
             const newBossBullets: Bullet[] = [];
             const speedMultiplier = 1 + (level - 1) * 0.1;
             const baseSpeed = BULLET_SPEED_ENEMY * 0.8 * speedMultiplier;
+            const isDebuffShot = Math.random() < 0.8; // 80% chance for debuff bullet during boss
 
             if (currentPattern === 'spiral') {
-              // Spiral Pattern
-              const bulletCount = 3;
-              const spiralOffset = bossMovementTime.current * 3; // Rotation over time
+              // Sinusoidal/Winding Pattern for increased difficulty
+              const bulletCount = 5;
+              const spiralOffset = bossMovementTime.current * 3;
 
               for (let i = 0; i < bulletCount; i++) {
                 const angle = (Math.PI * 2 / bulletCount) * i + spiralOffset;
+                const radialAngle = angle;
                 newBossBullets.push({
                   id: bulletIdCounter.current++,
                   x: prev.x + Math.cos(angle) * 10,
                   y: prev.y + 40 + Math.sin(angle) * 10,
-                  speed: 0, // Not used when we have vx/vy
-                  vx: Math.cos(angle + Math.PI / 2) * baseSpeed, // Tangential? No, radial from center usually. Let's do radial.
-                  vy: Math.sin(angle + Math.PI / 2) * baseSpeed,
-                  // Wait, spiral usually means bullets travel outward in a spiral SHAPE (radial velocity) 
-                  // OR they travel in a curve. Let's do radial out from a spinning source.
-                  // Correct math for radial out from center with spinning angle:
-                  // vx = cos(angle) * speed, vy = sin(angle) * speed.
-                  // Let's use correct angle.
+                  speed: 0,
+                  vx: Math.cos(radialAngle) * baseSpeed,
+                  vy: Math.sin(radialAngle) * baseSpeed,
                   isEnemy: true,
+                  isDebuff: isDebuffShot && i === 0, // Only first bullet is debuff
                 });
-                // Overriding with simpler radial burst from rotating point
-                const radialAngle = angle;
-                newBossBullets[i].vx = Math.cos(radialAngle) * baseSpeed;
-                newBossBullets[i].vy = Math.sin(radialAngle) * baseSpeed;
               }
             } else {
-              // Spread Pattern (Fan towards player)
-              const spreadCount = 5;
-              const angleStep = Math.PI / 8; // 22.5 degrees
-              const startAngle = Math.PI / 2 - (angleStep * (spreadCount - 1)) / 2; // Centered downwards (PI/2)
+              // Spread Pattern with sinusoidal movement
+              const spreadCount = 7; // Increased from 5
+              const angleStep = Math.PI / 6; // Wider spread
 
               // Calculate angle towards player
               const dx = playerPos.x - prev.x;
@@ -536,9 +595,10 @@ export function PixelShooterGame({ isPaused, onPause, onGameOver, selectedSkin =
                   x: prev.x,
                   y: prev.y + 20,
                   speed: 0,
-                  vx: Math.cos(angle) * baseSpeed * 1.5, // Faster spread
+                  vx: Math.cos(angle) * baseSpeed * 1.5,
                   vy: Math.sin(angle) * baseSpeed * 1.5,
                   isEnemy: true,
+                  isDebuff: isDebuffShot && i === Math.floor(spreadCount / 2), // Middle bullet is debuff
                 });
               }
             }
@@ -629,7 +689,9 @@ export function PixelShooterGame({ isPaused, onPause, onGameOver, selectedSkin =
                 Math.abs(bullet.y - enemy.y) < ENEMY_SIZE / 2 + BULLET_SIZE / 2
               ) {
                 bulletsToRemove.add(bullet.id);
-                enemy.health -= 1;
+                // Shotgun does 200% damage (2x), buffed from 150%
+                const damage = bullet.maxDistance ? 2.0 : 1;
+                enemy.health -= damage;
                 if (enemy.health <= 0) {
                   setScore(s => s + 100);
 
@@ -645,7 +707,8 @@ export function PixelShooterGame({ isPaused, onPause, onGameOver, selectedSkin =
                         id: powerUpIdCounter.current++,
                         x: enemy.x,
                         y: enemy.y,
-                        type: Math.random() < 0.7 ? "power" : "health",
+                        // Nerfed lightning drop: 35% chance (was 70%), health 65%
+                        type: Math.random() < 0.35 ? "power" : "health",
                       },
                     ]);
                   }
@@ -680,6 +743,13 @@ export function PixelShooterGame({ isPaused, onPause, onGameOver, selectedSkin =
             // Create explosion at player position
             createExplosion(playerPosRef.current.x, playerPosRef.current.y, "small");
             if (soundEnabled) soundSystem.hit();
+
+            // Check if it's a debuff bullet
+            if (bullet.isDebuff) {
+              // Reset power to 1 (remove multishot)
+              setPower(1);
+              if (soundEnabled) soundSystem.hit(); // Extra sound for debuff
+            }
 
             setLives(l => {
               const newLives = l - 1;
@@ -813,6 +883,7 @@ export function PixelShooterGame({ isPaused, onPause, onGameOver, selectedSkin =
         bombs={bombs}
         grazeCount={grazeCount}
         highScore={highScore}
+        weaponMode={weaponMode}
       />
 
       <motion.div
@@ -929,6 +1000,18 @@ export function PixelShooterGame({ isPaused, onPause, onGameOver, selectedSkin =
           </motion.div>
         ))}
 
+        {/* Boss */}
+        {boss && (
+          <BossEnemy
+            x={boss.x}
+            y={boss.y}
+            health={boss.health}
+            maxHealth={boss.maxHealth}
+            shield={boss.shield}
+            maxShield={boss.maxShield}
+          />
+        )}
+
         {/* Player */}
         {/* Player */}
         <div
@@ -971,8 +1054,10 @@ export function PixelShooterGame({ isPaused, onPause, onGameOver, selectedSkin =
               top: bullet.y - BULLET_SIZE / 2,
               width: BULLET_SIZE,
               height: BULLET_SIZE,
-              backgroundColor: bullet.isEnemy ? undefined : '#FFAB00',
-              boxShadow: `0 0 ${bullet.isEnemy ? '4px #ef4444' : '6px #FFAB00'}`,
+              backgroundColor: bullet.isDebuff ? '#8B00FF' : (bullet.isEnemy ? undefined : '#FFAB00'),
+              boxShadow: bullet.isDebuff
+                ? '0 0 8px #8B00FF, 0 0 16px #8B00FF'
+                : `0 0 ${bullet.isEnemy ? '4px #ef4444' : '6px #FFAB00'}`,
             }}
           />
         ))}

@@ -8,9 +8,10 @@ interface GameUIProps {
   bombs?: number;
   grazeCount?: number;
   highScore?: number;
+  weaponMode?: 'BLASTER' | 'SHOTGUN';
 }
 
-export function GameUI({ score, lives, power, wave, bombs = 0, grazeCount = 0, highScore = 0 }: GameUIProps) {
+export function GameUI({ score, lives, power, wave, bombs = 0, grazeCount = 0, highScore = 0, weaponMode = 'BLASTER' }: GameUIProps) {
   return (
     <div className="w-full max-w-md bg-gradient-to-r from-purple-900 to-indigo-900 border-4 border-purple-500 p-4 shadow-lg shadow-purple-500/50">
       <div className="grid grid-cols-2 gap-4">
@@ -34,6 +35,12 @@ export function GameUI({ score, lives, power, wave, bombs = 0, grazeCount = 0, h
             <span className="text-purple-400">GRAZE:</span>
             <span className="text-white ml-2">{grazeCount}</span>
           </div>
+          <div className="pixel-text">
+            <span className="text-cyan-400">WEAPON:</span>
+            <span className={`ml-2 ${weaponMode === 'SHOTGUN' ? 'text-orange-400' : 'text-cyan-300'}`}>
+              {weaponMode}
+            </span>
+          </div>
         </div>
 
         {/* Lives, Power, and Bombs */}
@@ -44,9 +51,8 @@ export function GameUI({ score, lives, power, wave, bombs = 0, grazeCount = 0, h
               {[...Array(5)].map((_, i) => (
                 <Heart
                   key={i}
-                  className={`w-4 h-4 ${
-                    i < lives ? "text-pink-500 fill-pink-500" : "text-gray-600"
-                  }`}
+                  className={`w-4 h-4 ${i < lives ? "text-pink-500 fill-pink-500" : "text-gray-600"
+                    }`}
                 />
               ))}
             </div>
@@ -57,9 +63,8 @@ export function GameUI({ score, lives, power, wave, bombs = 0, grazeCount = 0, h
               {[...Array(3)].map((_, i) => (
                 <Zap
                   key={i}
-                  className={`w-4 h-4 ${
-                    i < power ? "text-yellow-400 fill-yellow-400" : "text-gray-600"
-                  }`}
+                  className={`w-4 h-4 ${i < power ? "text-yellow-400 fill-yellow-400" : "text-gray-600"
+                    }`}
                 />
               ))}
             </div>
@@ -70,9 +75,8 @@ export function GameUI({ score, lives, power, wave, bombs = 0, grazeCount = 0, h
               {[...Array(3)].map((_, i) => (
                 <Bomb
                   key={i}
-                  className={`w-4 h-4 ${
-                    i < bombs ? "text-red-400 fill-red-400" : "text-gray-600"
-                  }`}
+                  className={`w-4 h-4 ${i < bombs ? "text-red-400 fill-red-400" : "text-gray-600"
+                    }`}
                 />
               ))}
             </div>

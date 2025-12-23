@@ -14,21 +14,20 @@ export function PauseMenu({ onResume, onQuit }: PauseMenuProps) {
                 <div className="flex flex-col gap-4">
                     <button
                         onClick={onResume}
-                        className="group relative px-6 py-3 bg-cyan-600 hover:bg-cyan-500 border-2 border-cyan-300 transition-all active:scale-95 text-white"
+                        className="group relative px-6 py-3 bg-cyan-600 hover:bg-cyan-500 border-2 border-cyan-300 transition-all active:scale-95 text-white w-full"
                     >
                         <div className="flex items-center justify-center gap-2">
                             <Play className="w-5 h-5 fill-current" />
-                            <span className="pixel-text-button">RESUME</span>
+                            <span className="pixel-text text-sm">RESUME</span>
                         </div>
                     </button>
 
                     <button
                         onClick={onQuit}
-                        className="group relative px-6 py-3 bg-red-600 hover:bg-red-500 border-2 border-red-300 transition-all active:scale-95 text-white"
+                        className="group relative px-6 py-3 bg-cyan-600 hover:bg-cyan-500 border-2 border-cyan-300 transition-all active:scale-95 text-white w-full"
                     >
-                        <div className="flex items-center justify-center gap-2">
-                            <Home className="w-5 h-5" />
-                            <span className="pixel-text-button">MAIN MENU</span>
+                        <div className="flex items-center justify-center">
+                            <Home className="w-6 h-6" />
                         </div>
                     </button>
                 </div>
